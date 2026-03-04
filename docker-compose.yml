@@ -11,7 +11,9 @@ services:
       - "127.0.0.1:${OPENCLAW_GATEWAY_PORT:-18789}:18789"
       - "127.0.0.1:${OPENCLAW_BRIDGE_PORT:-18790}:18790"
     restart: unless-stopped
-    command: ["node","dist/index.js","gateway","--bind","loopback","--port","18789"]
+    # ✅ FIX: permitir arrancar sin configuración inicial
+    command:
+      ["node","dist/index.js","gateway","--bind","loopback","--port","18789","--allow-unconfigured"]
 
   openclaw-cli:
     image: ${OPENCLAW_IMAGE:-ghcr.io/openclaw/openclaw:latest}
@@ -23,6 +25,8 @@ services:
       - openclaw_workspace:/home/node/.openclaw/workspace
     stdin_open: true
     tty: true
+    # (Opcional) Si quieres abrir shell manualmente dentro del contenedor:
+    # command: ["/bin/sh"]
 
 volumes:
   openclaw_config:
