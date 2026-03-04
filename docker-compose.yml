@@ -6,7 +6,8 @@ services:
     volumes:
       - openclaw_home:/home/node
     ports:
-      - "3737:3737"
+     - "18789:18789"   # gateway/canvas (ws + http)
+     - "18791:18791"   # browser control (http, auth-token)
 
 volumes:
   openclaw_home:
