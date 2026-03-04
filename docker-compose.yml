@@ -1,4 +1,4 @@
-services:
+  services:
   openclaw-gateway:
     image: ghcr.io/openclaw/openclaw:2026.3.2
     restart: unless-stopped
@@ -6,8 +6,7 @@ services:
     volumes:
       - openclaw_home:/home/node
     ports:
-     - "18789:18789"   # gateway/canvas (ws + http)
-     - "18791:18791"   # browser control (http, auth-token)
-
+      - "18789:18789"
+      - "18791:18791"
 volumes:
   openclaw_home:
