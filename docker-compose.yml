@@ -1,4 +1,4 @@
-  services:
+services:
   openclaw-gateway:
     image: ghcr.io/openclaw/openclaw:2026.3.2
     restart: unless-stopped
@@ -8,5 +8,7 @@
     ports:
       - "18789:18789"
       - "18791:18791"
+    command: ["node", "openclaw.mjs", "gateway", "--allow-unconfigured", "--host", "0.0.0.0"]
+
 volumes:
   openclaw_home:
