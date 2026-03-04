@@ -3,12 +3,10 @@ services:
     image: ghcr.io/openclaw/openclaw:2026.3.2
     restart: unless-stopped
     user: "0:0"
+    network_mode: host
     volumes:
       - openclaw_home:/home/node
-    ports:
-      - "18789:18789"
-      - "18791:18791"
-    command: ["node", "openclaw.mjs", "gateway", "--allow-unconfigured", "--host", "0.0.0.0"]
+    command: ["node", "openclaw.mjs", "gateway", "--allow-unconfigured", "--port", "18789"]
 
 volumes:
   openclaw_home:
