@@ -12,11 +12,8 @@ services:
     restart: unless-stopped
     depends_on:
       - openclaw-gateway
-    # 👇 comparte la misma red del gateway (MISMA IP)
     network_mode: "service:openclaw-gateway"
-    command: >
-      -dd TCP-LISTEN:8089,fork,reuseaddr,bind=0.0.0.0
-      TCP:127.0.0.1:18789
+    command: ["-dd","TCP-LISTEN:8089,fork,reuseaddr,bind=0.0.0.0","TCP:127.0.0.1:18789"]
 
 volumes:
   openclaw_home:
