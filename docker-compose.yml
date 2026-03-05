@@ -1,27 +1,10 @@
 services:
-  # 1) One-shot: arregla permisos de los volúmenes para evitar EACCES
-  openclaw-init-perms:
-    image: ghcr.io/openclaw/openclaw:2026.3.2
-    user: "0:0"
-    environment:
-      HOME: /home/node
-    volumes:
-      - openclaw_config:/home/node/.openclaw
-      - openclaw_workspace:/home/node/.openclaw/workspace
-    entrypoint: ["sh", "-lc"]
-    command:
-      - |
-        set -e
-        echo "[init] Fixing permissions on /home/node/.openclaw ..."
-        mkdir -p /home/node/.openclaw /home/node/.openclaw/workspace
-        chown -R 1000:1000 /home/node/.openclaw
-        chmod -R u+rwX,g+rwX /home/node/.openclaw
-        echo "[init] Done."
-    restart: "no"
-
   openclaw-web:
     image: ghcr.io/openclaw/openclaw:2026.3.2
+
+    # MUY importante: asegura que escribe en los volúmenes sin EACCES
     user: "1000:1000"
+
     environment:
       HOME: /home/node
       TERM: xterm-256color
@@ -33,7 +16,14 @@ services:
       OPENCLAW_GATEWAY_CONTROLUI_DANGEROUSLY_ALLOW_HOST_HEADER_ORIGIN_FALLBACK: "true"
       OPENCLAW_GATEWAY_CONTROLUI_ALLOWED_ORIGINS: "https://openclaw.pugainversor.com"
 
-      # Opcional (solo si lo necesitas)
+      # --- FIX: evita el crash por "Missing config" ---
+      # Alternativas:
+      # A) gateway.mode=local (recomendado para empezar)
+      OPENCLAW_GATEWAY_MODE: "local"
+      # B) o permitir unconfigured (si tu versión lo soporta)
+      # OPENCLAW_GATEWAY_ALLOW_UNCONFIGURED: "true"
+
+      # Opcional
       OPENCLAW_ALLOW_INSECURE_PRIVATE_WS: ${OPENCLAW_ALLOW_INSECURE_PRIVATE_WS:-}
       CLAUDE_AI_SESSION_KEY: ${CLAUDE_AI_SESSION_KEY:-}
       CLAUDE_WEB_SESSION_KEY: ${CLAUDE_WEB_SESSION_KEY:-}
@@ -50,11 +40,16 @@ services:
     init: true
     restart: unless-stopped
 
-    command: ["node", "dist/index.js", "gateway", "--bind", "lan", "--port", "18789"]
-
-    depends_on:
-      openclaw-init-perms:
-        condition: service_completed_successfully
+    command:
+      [
+        "node",
+        "dist/index.js",
+        "gateway",
+        "--bind",
+        "lan",
+        "--port",
+        "18789"
+      ]
 
     healthcheck:
       test:
@@ -62,34 +57,41 @@ services:
           "CMD",
           "node",
           "-e",
-          "fetch('http://127.0.0.1:18789/healthz').then((r)=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
+          "fetch('http://127.0.0.1:18789/healthz').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
         ]
       interval: 30s
       timeout: 5s
       retries: 5
-      start_period: 20s
+      start_period: 30s
 
   openclaw-cli:
     image: ghcr.io/openclaw/openclaw:2026.3.2
     user: "1000:1000"
+
+    # Comparte red con el gateway (así apuntas a 127.0.0.1:18789 desde CLI)
     network_mode: "service:openclaw-web"
+
     cap_drop:
       - NET_RAW
       - NET_ADMIN
     security_opt:
       - no-new-privileges:true
+
     environment:
       HOME: /home/node
       TERM: xterm-256color
       OPENCLAW_GATEWAY_TOKEN: ${OPENCLAW_GATEWAY_TOKEN}
+
+      # Mantén consistente con web
+      OPENCLAW_GATEWAY_MODE: "local"
+      OPENCLAW_GATEWAY_CONTROLUI_DANGEROUSLY_ALLOW_HOST_HEADER_ORIGIN_FALLBACK: "true"
+      OPENCLAW_GATEWAY_CONTROLUI_ALLOWED_ORIGINS: "https://openclaw.pugainversor.com"
+
       OPENCLAW_ALLOW_INSECURE_PRIVATE_WS: ${OPENCLAW_ALLOW_INSECURE_PRIVATE_WS:-}
       BROWSER: echo
       CLAUDE_AI_SESSION_KEY: ${CLAUDE_AI_SESSION_KEY:-}
       CLAUDE_WEB_SESSION_KEY: ${CLAUDE_WEB_SESSION_KEY:-}
       CLAUDE_WEB_COOKIE: ${CLAUDE_WEB_COOKIE:-}
-
-      OPENCLAW_GATEWAY_CONTROLUI_DANGEROUSLY_ALLOW_HOST_HEADER_ORIGIN_FALLBACK: "true"
-      OPENCLAW_GATEWAY_CONTROLUI_ALLOWED_ORIGINS: "https://openclaw.pugainversor.com"
 
     volumes:
       - openclaw_config:/home/node/.openclaw
@@ -99,9 +101,9 @@ services:
     tty: true
     init: true
 
-    # Mantén el contenedor vivo para poder entrar y ejecutar openclaw setup/onboard cuando quieras
+    # Importante: no queremos que se cierre al terminar un comando
     entrypoint: ["sh", "-lc"]
-    command: ["tail -f /dev/null"]
+    command: ["sleep infinity"]
 
     depends_on:
       - openclaw-web
