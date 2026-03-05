@@ -1,16 +1,20 @@
 services:
-  # Este servicio debe coincidir con el "Service" al que Dokploy le amarra el dominio:
-  # openclaw.pugainversor.com  ->  openclaw-web
   openclaw-web:
     image: ghcr.io/openclaw/openclaw:2026.3.2
     environment:
       HOME: /home/node
       TERM: xterm-256color
 
-      # Obligatorio (ponlo en variables/env de Dokploy)
+      # Token del gateway (obligatorio)
       OPENCLAW_GATEWAY_TOKEN: ${OPENCLAW_GATEWAY_TOKEN}
 
-      # Opcionales
+      # --- FIX: Control UI detrás de proxy / bind lan ---
+      # Opción rápida (recomendada para Dokploy): usa Host header como origen
+      OPENCLAW_GATEWAY_CONTROLUI_DANGEROUSLY_ALLOW_HOST_HEADER_ORIGIN_FALLBACK: "true"
+      # Opción segura (además del fallback): fija el origin permitido (ajusta tu dominio)
+      OPENCLAW_GATEWAY_CONTROLUI_ALLOWED_ORIGINS: "https://openclaw.pugainversor.com"
+
+      # Opcional (solo si lo necesitas)
       OPENCLAW_ALLOW_INSECURE_PRIVATE_WS: ${OPENCLAW_ALLOW_INSECURE_PRIVATE_WS:-}
       CLAUDE_AI_SESSION_KEY: ${CLAUDE_AI_SESSION_KEY:-}
       CLAUDE_WEB_SESSION_KEY: ${CLAUDE_WEB_SESSION_KEY:-}
@@ -20,7 +24,7 @@ services:
       - openclaw_config:/home/node/.openclaw
       - openclaw_workspace:/home/node/.openclaw/workspace
 
-    # Dokploy enruta por red interna; no hace falta "ports:"
+    # Dokploy/Traefik enruta por servicio; expone internamente
     expose:
       - "18789"
       - "18790"
@@ -36,8 +40,7 @@ services:
         "--bind",
         "lan",
         "--port",
-        "18789",
-        "--allow-unconfigured"
+        "18789"
       ]
 
     healthcheck:
@@ -46,15 +49,13 @@ services:
           "CMD",
           "node",
           "-e",
-          "require('http').get('http://127.0.0.1:18789/healthz', r => process.exit(r.statusCode===200?0:1)).on('error', () => process.exit(1));"
+          "fetch('http://127.0.0.1:18789/healthz').then((r)=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
         ]
       interval: 30s
       timeout: 5s
       retries: 5
-      start_period: 30s
+      start_period: 20s
 
-  # Contenedor “toolbox” para correr comandos cuando lo necesites:
-  # docker exec -it <container> sh
   openclaw-cli:
     image: ghcr.io/openclaw/openclaw:2026.3.2
     network_mode: "service:openclaw-web"
@@ -66,24 +67,24 @@ services:
     environment:
       HOME: /home/node
       TERM: xterm-256color
-      BROWSER: echo
-
       OPENCLAW_GATEWAY_TOKEN: ${OPENCLAW_GATEWAY_TOKEN}
       OPENCLAW_ALLOW_INSECURE_PRIVATE_WS: ${OPENCLAW_ALLOW_INSECURE_PRIVATE_WS:-}
+      BROWSER: echo
       CLAUDE_AI_SESSION_KEY: ${CLAUDE_AI_SESSION_KEY:-}
       CLAUDE_WEB_SESSION_KEY: ${CLAUDE_WEB_SESSION_KEY:-}
       CLAUDE_WEB_COOKIE: ${CLAUDE_WEB_COOKIE:-}
 
+      # (opcional) para que CLI también conozca la config de Control UI si la usa
+      OPENCLAW_GATEWAY_CONTROLUI_DANGEROUSLY_ALLOW_HOST_HEADER_ORIGIN_FALLBACK: "true"
+      OPENCLAW_GATEWAY_CONTROLUI_ALLOWED_ORIGINS: "https://openclaw.pugainversor.com"
+
     volumes:
       - openclaw_config:/home/node/.openclaw
       - openclaw_workspace:/home/node/.openclaw/workspace
-
     stdin_open: true
     tty: true
     init: true
-    entrypoint: ["sh", "-lc"]
-    command: ["sleep infinity"]
-    restart: unless-stopped
+    entrypoint: ["node", "dist/index.js"]
     depends_on:
       - openclaw-web
 
