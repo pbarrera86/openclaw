@@ -1,11 +1,13 @@
 services:
   openclaw-gateway:
-      expose:
-      - "18789"
     image: ghcr.io/openclaw/openclaw:2026.3.2
     restart: unless-stopped
     volumes:
       - openclaw_home:/home/node
+    # solo para que sea accesible en la red docker
+    expose:
+      - "18789"
+    # (opcional) seguir dejando el acceso local directo:
     ports:
       - "127.0.0.1:18789:18789"
       - "127.0.0.1:18791:18791"
@@ -15,8 +17,8 @@ services:
     restart: unless-stopped
     depends_on:
       - openclaw-gateway
-    ports:
-      - "127.0.0.1:8089:8089"
+    expose:
+      - "8089"
     volumes:
       - ./nginx-openclaw.conf:/etc/nginx/conf.d/default.conf:ro
 
