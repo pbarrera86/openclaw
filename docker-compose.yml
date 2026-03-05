@@ -4,12 +4,18 @@ services:
     restart: unless-stopped
     volumes:
       - openclaw_home:/home/node
-    ports:
-      - "127.0.0.1:18789:18789"
-      - "127.0.0.1:18791:18791"
-    # opcional pero ayuda a Traefik a descubrir el puerto
-    expose:
-      - "18789"
+    command: ["node", "openclaw.mjs", "gateway", "--allow-unconfigured", "--port", "18789"]
+    # NO ports aquí
+    # NO network_mode: host
+
+  openclaw-proxy:
+    image: alpine/socat
+    restart: unless-stopped
+    network_mode: "service:openclaw-gateway"
+    command: >
+      -dd
+      TCP-LISTEN:18789,fork,reuseaddr,bind=0.0.0.0
+      TCP:127.0.0.1:18789
 
 volumes:
   openclaw_home:
